@@ -1,14 +1,6 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -20,11 +12,31 @@ import ProgressBar from '@/components/ProgressBar';
 import { useCampaign, ToneType } from '@/context/CampaignContext';
 import { generateAdContent } from '@/services/api';
 
+type ObjectiveType = 'Ventas de producto' | 'Generar leads';
+type LanguageType = 'Español-AR' | 'Inglés' | 'Portugués';
+
 const BusinessForm: React.FC = () => {
   const { formData, setFormData, setAdOptions, setAudienceTip, setIsLoading } = useCampaign();
-  const [selectedTones, setSelectedTones] = useState<ToneType[]>(formData.tones);
+  const [selectedTones, setSelectedTones] = useState<ToneType[]>(formData.tones || []);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    // Initialize form data if needed
+    if (!formData) {
+      setFormData({
+        objective: '' as ObjectiveType,
+        product: '',
+        benefit: '',
+        audience: '',
+        tones: [],
+        language: 'Español-AR' as LanguageType,
+        budget: 5,
+        image: null
+      });
+    }
+  }, [formData, setFormData]);
 
   const handleToneToggle = (tone: ToneType) => {
     setSelectedTones(prev => {
@@ -118,6 +130,27 @@ const BusinessForm: React.FC = () => {
     }
   };
 
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen">
+        <Header />
+        <main className="flex-grow flex items-center justify-center">
+          <div className="text-center">
+            <h2 className="text-xl font-medium mb-2 text-red-600">Error</h2>
+            <p className="text-gray-600">{error}</p>
+            <Button 
+              onClick={() => window.location.reload()} 
+              className="mt-4"
+            >
+              Recargar página
+            </Button>
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-h-screen">
       <Header />
@@ -132,19 +165,17 @@ const BusinessForm: React.FC = () => {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="objective">Objetivo de la campaña</Label>
-              <Select 
-                value={formData.objective} 
-                onValueChange={(value) => setFormData({...formData, objective: value as any})}
+              <select
+                id="objective"
+                value={formData.objective}
+                onChange={(e) => setFormData({...formData, objective: e.target.value as ObjectiveType})}
                 required
+                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona un objetivo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Ventas de producto">Ventas de producto</SelectItem>
-                  <SelectItem value="Generar leads">Generar leads</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="">Selecciona un objetivo</option>
+                <option value="Ventas de producto">Ventas de producto</option>
+                <option value="Generar leads">Generar leads</option>
+              </select>
             </div>
             
             <div className="space-y-2">
@@ -187,40 +218,48 @@ const BusinessForm: React.FC = () => {
             </div>
             
             <div className="space-y-3">
-              <Label>Tonalidad deseada (máx. 3)</Label>
-              <div className="flex flex-wrap gap-2">
-                {(['Amigable', 'Profesional', 'Humorística', 'Urgente', 'Inspiradora'] as ToneType[]).map((tone) => (
-                  <Button
-                    key={tone}
-                    type="button"
-                    variant={selectedTones.includes(tone) ? "default" : "outline"}
-                    className={selectedTones.includes(tone) 
-                      ? "bg-brand-primary text-white" 
-                      : "border-brand-primary text-brand-primary"}
-                    onClick={() => handleToneToggle(tone)}
-                  >
-                    {tone}
-                  </Button>
-                ))}
-              </div>
+              <Label htmlFor="tones">Tonalidad deseada (máx. 3)</Label>
+              <select
+                id="tones"
+                multiple
+                value={selectedTones}
+                onChange={(e) => {
+                  const values = Array.from(e.target.selectedOptions).map(o => o.value as ToneType);
+                  if (values.length <= 3) {
+                    setSelectedTones(values);
+                  } else {
+                    toast({
+                      title: "Máximo 3 tonalidades",
+                      description: "Elimina una tonalidad para seleccionar otra",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="Amigable">Amigable</option>
+                <option value="Profesional">Profesional</option>
+                <option value="Humorística">Humorística</option>
+                <option value="Urgente">Urgente</option>
+                <option value="Inspiradora">Inspiradora</option>
+              </select>
+              <p className="text-xs text-gray-500">Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples opciones</p>
             </div>
             
             <div className="space-y-2">
               <Label htmlFor="language">Idioma</Label>
-              <Select 
-                value={formData.language} 
-                onValueChange={(value) => setFormData({...formData, language: value as any})}
+              <select
+                id="language"
+                value={formData.language}
+                onChange={(e) => setFormData({...formData, language: e.target.value as LanguageType})}
                 required
+                className="w-full rounded-md border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Selecciona un idioma" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Español-AR">Español (Argentina)</SelectItem>
-                  <SelectItem value="Inglés">Inglés</SelectItem>
-                  <SelectItem value="Portugués">Portugués</SelectItem>
-                </SelectContent>
-              </Select>
+                <option value="">Selecciona un idioma</option>
+                <option value="Español-AR">Español (Argentina)</option>
+                <option value="Inglés">Inglés</option>
+                <option value="Portugués">Portugués</option>
+              </select>
             </div>
             
             <div className="space-y-4">
